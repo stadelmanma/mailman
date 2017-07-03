@@ -144,6 +144,7 @@ module Mailman
         begin
           connection.connect
           connection.get_messages
+          Mailman.logger.debug('Connected and fetched messages')
         rescue SystemCallError, EOFError => e
           Mailman.logger.error e.message
           unless (tries -= 1).zero?
