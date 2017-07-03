@@ -6,7 +6,7 @@ module Mailman
 
     # @return [Hash] the configuration hash for POP3
     attr_accessor :pop3
-    
+
     # @return [Hash] the configuration hash for IMAP
     attr_accessor :imap
 
@@ -16,6 +16,9 @@ module Mailman
     # @return [Fixnum] the poll interval for POP3 or IMAP. Setting this to 0
     #   disables polling
     attr_accessor :poll_interval
+
+    # @return [boolean] whether or not to use a single connection in polling loop
+    attr_accessor :persistent
 
     # @return [String] the path to the maildir
     attr_accessor :maildir
