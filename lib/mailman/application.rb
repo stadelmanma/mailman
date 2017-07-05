@@ -139,22 +139,19 @@ module Mailman
       end
       Mailman.logger.info(polling_msg)
 
-      tries ||= 5
+      if config.persistent
+        persistent_poll(connection, 5)
+      else
+        reconnect_poll(connection, 5)
+      end
+    end
+
+    # Reconnects everytime to fetch messages from the server
+    def reconnect_poll(connection, tries)
       loop do
         begin
-          connection.connect
-          connection.get_messages
-          Mailman.logger.debug('Connected and fetched messages')
-        rescue SystemCallError, EOFError => e
-          Mailman.logger.error e.message
-          unless (tries -= 1).zero?
-            Mailman.logger.error "Retrying..."
-            begin
-              connection.disconnect
-            rescue # don't crash in the crash handler
-            end
-            retry
-          end
+          tries = retry_exec(connection, :connect, tries)
+          tries = retry_exec(connection, :get_messages, tries) if tries > 0
         ensure
           connection.started? && connection.disconnect
         end
@@ -164,5 +161,34 @@ module Mailman
       end
     end
 
+    def persistent_poll(connection, tries)
+      retry_exec(connection, :connect, tries)
+      return if tries.zero?
+      #
+      loop do
+        retry_exec(connection, :get_messages, tries)
+
+        break unless polling?
+        sleep config.poll_interval
+      end
+    ensure
+      connection.disconnect
+    end
+
+    # attempts to send a method to the connection (tries) times
+    def retry_exec(connection, method, tries)
+      connection.send method
+      tries
+    rescue SystemCallError, EOFError => e
+      Mailman.logger.error e.message
+      #
+      if (tries -= 1).zero?
+        @polling_interrupt = true
+        0
+      else
+        Mailman.logger.error 'Retrying...'
+        retry
+      end
+    end
   end
 end
